@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import KeepAliveCore
 
 let arguments = CommandLine.arguments
@@ -12,7 +12,12 @@ if arguments.contains("--list-windows") {
 } else if arguments.contains("--idle") {
     print(Diagnostics.sampleIdle(seconds: 15))
     exit(0)
-} else {
-    print("GUI not yet wired")
-    exit(0)
+}
+
+MainActor.assumeIsolated {
+    let app = NSApplication.shared
+    app.setActivationPolicy(.accessory)
+    let delegate = AppDelegate()
+    app.delegate = delegate
+    app.run()
 }

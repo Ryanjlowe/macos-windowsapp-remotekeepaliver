@@ -55,6 +55,8 @@ public final class KeepAliveEngine {
     public private(set) var lastTargets: [WindowInfo] = []
     public var settings: KeepAliveSettings
     public var onStateChange: ((KeepAliveState) -> Void)?
+    /// Receives short log lines for targets and each jiggle.
+    public var onLog: ((String) -> Void)?
 
     private let clock: Clock
     private let idleSource: IdleSource
@@ -140,6 +142,9 @@ public final class KeepAliveEngine {
 
     private func runCycle() -> Bool {
         let targets = SessionWindowSelector.select(from: windows.sessionCandidates())
+        if targets.map(\.id) != lastTargets.map(\.id) {
+            onLog?("targets: \(targets.map(\.title).joined(separator: ", "))")
+        }
         lastTargets = targets
         guard !targets.isEmpty else { return false }
 
@@ -154,6 +159,7 @@ public final class KeepAliveEngine {
         }
         guard let start = burstStart, let end = burstEnd else { return false }
         lastBurst = (start, end)
+        onLog?("jiggled \(targets.count) window(s)")
 
         if settings.returnFocusAfterJiggle, let previous,
            previous.bundleIdentifier != windowsAppBundleID,
