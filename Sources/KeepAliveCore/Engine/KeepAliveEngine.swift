@@ -150,6 +150,13 @@ public final class KeepAliveEngine {
         runCycle() == .jiggled
     }
 
+    /// Re-reads the session windows without jiggling, so the menu can show
+    /// the target while the user is still present.
+    public func refreshTargets() {
+        guard hasPermission() else { return }
+        lastTargets = SessionWindowSelector.select(from: windows.sessionCandidates())
+    }
+
     private func updateRealInput(now: Date) {
         let lastEventAt = now.addingTimeInterval(-idleSource.secondsSinceLastInput())
         if let burst = lastBurst {

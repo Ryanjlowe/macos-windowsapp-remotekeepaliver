@@ -46,9 +46,9 @@ sequenceDiagram
 
 ## Menu
 
-![Mock of the RemoteKeepAliver menu](docs/images/menu.svg)
+![Screenshot of the RemoteKeepAliver menu showing Status: Watching, Target: Australia Desktop, and the settings toggles](docs/images/menu.png)
 
-This is a hand-drawn mock of the menu. A real screenshot will replace it.
+Screenshot of the menu while watching, with an open session named Australia Desktop as the target.
 
 ## Requirements
 

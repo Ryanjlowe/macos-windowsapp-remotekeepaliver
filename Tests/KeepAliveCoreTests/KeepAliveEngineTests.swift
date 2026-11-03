@@ -282,3 +282,19 @@ final class KeepAliveEngineTests: XCTestCase {
         XCTAssertEqual(states, [.away, .watching(idle: 1)])
     }
 }
+
+extension KeepAliveEngineTests {
+    func testRefreshTargetsUpdatesTargetsWithoutJiggling() {
+        XCTAssertTrue(engine.lastTargets.isEmpty)
+        engine.refreshTargets()
+        XCTAssertEqual(engine.lastTargets.map(\.title), ["Australia Desktop"])
+        XCTAssertEqual(mouse.jiggles.count, 0)
+        XCTAssertEqual(engine.state, .watching(idle: 0))
+    }
+
+    func testRefreshTargetsDoesNothingWithoutPermission() {
+        permission = false
+        engine.refreshTargets()
+        XCTAssertTrue(engine.lastTargets.isEmpty)
+    }
+}

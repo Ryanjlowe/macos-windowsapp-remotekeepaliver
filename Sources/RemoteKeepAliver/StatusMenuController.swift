@@ -74,6 +74,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
+        engine.refreshTargets()
         rebuild()
         refresh()
     }
