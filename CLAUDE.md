@@ -49,6 +49,7 @@ Sleep assertions (system, and optionally display) are held only while the app is
 
 ## Gotchas
 
+- `NSWorkspace.shared.frontmostApplication` and `NSRunningApplication.isActive` only update when the main run loop runs. The activate, jiggle, and restore steps block the main thread with short sleeps, so they verify focus through `Frontmost.pid()` (Accessibility system-wide focused application), which is synchronous. The first live `--jiggle-once` run failed for exactly this reason.
 - Do not launch the GUI app (`open`, `make run`, or the bare binary) from an agent session. It triggers permission prompts and a menu bar item nobody is watching. Use the diagnostic flags.
 - Run as a signed `.app` bundle. TCC remembers Accessibility per bundle id and signature, so a bare `.build` binary does not keep the grant. Ad-hoc signatures change on every rebuild and lose the grant; use a stable identity (`SIGN_IDENTITY=...`).
 - Relaunch after the user grants Accessibility. Event posting trust is evaluated at launch.

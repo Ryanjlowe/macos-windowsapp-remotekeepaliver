@@ -17,7 +17,7 @@ public final class WindowActivator: WindowActivating {
         for _ in 0..<2 {
             attempt(window)
             Thread.sleep(forTimeInterval: settleDelay)
-            if NSWorkspace.shared.frontmostApplication?.processIdentifier == window.pid { return true }
+            if Frontmost.pid() == window.pid { return true }
         }
         return false
     }

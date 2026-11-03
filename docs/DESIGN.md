@@ -77,8 +77,11 @@ Every `jiggleInterval` seconds while `away`:
    1. Activate Windows App (`NSRunningApplication.activate()`), then set
       `kAXFrontmostAttribute` on the app element and perform `kAXRaiseAction`
       on the window. Activation is cooperative on macOS 14+ and may be
-      declined, so check return codes, wait about 300 ms, confirm with
-      `NSWorkspace.frontmostApplication`, and retry once.
+      declined, so check return codes, wait about 300 ms, confirm which app
+      has focus, and retry once. The check reads the Accessibility
+      system-wide focused application (`Frontmost.pid()`), because
+      `NSWorkspace.frontmostApplication` is only refreshed by the main run
+      loop and is stale while this code sleeps on the main thread.
    2. Post `mouseMoved` events to `.cghidEventTap`. A `CGWarpMouseCursorPosition`
       alone generates no event, so every move is a posted `CGEvent`:
       - If the cursor is already inside the window frame, jiggle around the
