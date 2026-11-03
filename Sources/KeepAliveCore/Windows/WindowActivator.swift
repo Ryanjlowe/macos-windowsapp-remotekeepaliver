@@ -24,11 +24,7 @@ public final class WindowActivator: WindowActivating {
 
     private func attempt(_ window: WindowInfo) {
         if let app = NSRunningApplication(processIdentifier: window.pid) {
-            if #available(macOS 14.0, *) {
-                app.activate()
-            } else {
-                app.activate(options: [.activateIgnoringOtherApps])
-            }
+            app.activate()
         }
         let appElement = source.appElement(for: window.pid)
         _ = AXUIElementSetAttributeValue(appElement, kAXFrontmostAttribute as CFString, kCFBooleanTrue)

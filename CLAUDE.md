@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 swift build
 swift test
 swift test --filter KeepAliveCoreTests.SessionWindowSelectorTests/testName
-make bundle      # build/RemoteKeepAliver.app, ad-hoc signed with identifier com.ryanlowe.RemoteKeepAliver
+make bundle      # build/RemoteKeepAliver.app, signed (Apple Development identity if present, else ad-hoc) with identifier com.ryanlowe.RemoteKeepAliver
 make install     # kills the running app, copies the bundle to /Applications
 ```
 
@@ -50,7 +50,7 @@ Sleep assertions (system, and optionally display) are held only while the app is
 ## Gotchas
 
 - Do not launch the GUI app (`open`, `make run`, or the bare binary) from an agent session. It triggers permission prompts and a menu bar item nobody is watching. Use the diagnostic flags.
-- Run as a signed `.app` bundle. TCC remembers Accessibility per bundle id and signature, so a bare `.build` binary does not keep the grant.
+- Run as a signed `.app` bundle. TCC remembers Accessibility per bundle id and signature, so a bare `.build` binary does not keep the grant. Ad-hoc signatures change on every rebuild and lose the grant; use a stable identity (`SIGN_IDENTITY=...`).
 - Relaunch after the user grants Accessibility. Event posting trust is evaluated at launch.
 - The Windows App bundle id is the constant `windowsAppBundleID` (`com.microsoft.rdc.macos`), not a setting. Focus restore is skipped when the previous app is Windows App.
 - Session windows are titled like `Australia Desktop`; the Connection Center is titled exactly `Windows App`. Never target the latter.

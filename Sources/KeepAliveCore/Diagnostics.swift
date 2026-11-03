@@ -48,20 +48,19 @@ public enum Diagnostics {
         if jiggled, settings.returnFocusAfterJiggle, let previous,
            previous.bundleIdentifier != windowsAppBundleID,
            !targets.contains(where: { $0.pid == previous.pid }) {
-            focus.restore(previous)
-            lines.append("Restored focus to pid \(previous.pid)")
+            let ok = focus.restore(previous)
+            lines.append("Restore focus to pid \(previous.pid): \(ok ? "ok" : "failed")")
         }
         return lines.joined(separator: "\n")
     }
 
-    /// Prints the measured idle time once per second.
-    public static func sampleIdle(seconds: Int) -> String {
+    /// Prints the measured idle time once per second, as each sample is taken.
+    public static func sampleIdle(seconds: Int) {
         let source = CGIdleSource()
-        var lines: [String] = []
         for i in 0..<max(seconds, 1) {
-            lines.append(String(format: "t=%2ds idle=%.2f", i, source.secondsSinceLastInput()))
+            print(String(format: "t=%2ds idle=%.2f", i, source.secondsSinceLastInput()))
+            fflush(stdout)
             if i < seconds - 1 { Thread.sleep(forTimeInterval: 1) }
         }
-        return lines.joined(separator: "\n")
     }
 }

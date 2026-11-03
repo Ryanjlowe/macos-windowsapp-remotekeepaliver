@@ -21,6 +21,24 @@ public enum KeepAliveState: Equatable {
     case watching(idle: TimeInterval)
     case away
     case awayNoTarget
+
+    /// The case without its payload, so `.watching(idle:)` ticks are not transitions.
+    var kind: String {
+        switch self {
+        case .disabled: return "disabled"
+        case .needsPermission: return "needsPermission"
+        case .watching: return "watching"
+        case .away: return "away"
+        case .awayNoTarget: return "awayNoTarget"
+        }
+    }
+}
+
+/// The outcome of one away-mode cycle.
+public enum CycleResult: Equatable {
+    case noTarget
+    case activationFailed
+    case jiggled
 }
 
 public protocol WindowSource {
@@ -40,7 +58,7 @@ public protocol MousePosting {
 
 public protocol FocusRestoring {
     func currentFrontmost() -> FrontmostApp?
-    func restore(_ app: FrontmostApp)
+    func restore(_ app: FrontmostApp) -> Bool
 }
 
 /// The keep-alive state machine. Pure logic: no AppKit and no timers. The
@@ -50,9 +68,11 @@ public final class KeepAliveEngine {
     static let burstTolerance: TimeInterval = 0.5
 
     public private(set) var state: KeepAliveState {
-        didSet { if state != oldValue { onStateChange?(state) } }
+        didSet { if state.kind != oldValue.kind { onStateChange?(state) } }
     }
     public private(set) var lastTargets: [WindowInfo] = []
+    /// True when the last cycle found session windows but could not activate any of them.
+    public private(set) var lastCycleActivationFailed = false
     public var settings: KeepAliveSettings
     public var onStateChange: ((KeepAliveState) -> Void)?
     /// Receives short log lines for targets and each jiggle.
@@ -119,15 +139,15 @@ public final class KeepAliveEngine {
         if let due = nextCycleAt, now < due {
             return
         }
-        let jiggled = runCycle()
+        let result = runCycle()
         nextCycleAt = clock.now.addingTimeInterval(settings.jiggleInterval)
-        state = jiggled ? .away : .awayNoTarget
+        state = result == .noTarget ? .awayNoTarget : .away
     }
 
     /// Runs one cycle in any state. Returns whether a window was jiggled.
     @discardableResult
     public func jiggleNow() -> Bool {
-        runCycle()
+        runCycle() == .jiggled
     }
 
     private func updateRealInput(now: Date) {
@@ -140,32 +160,44 @@ public final class KeepAliveEngine {
         if lastEventAt > lastRealInputAt { lastRealInputAt = lastEventAt }
     }
 
-    private func runCycle() -> Bool {
+    private func runCycle() -> CycleResult {
         let targets = SessionWindowSelector.select(from: windows.sessionCandidates())
         if targets.map(\.id) != lastTargets.map(\.id) {
             onLog?("targets: \(targets.map(\.title).joined(separator: ", "))")
         }
         lastTargets = targets
-        guard !targets.isEmpty else { return false }
+        guard !targets.isEmpty else {
+            lastCycleActivationFailed = false
+            return .noTarget
+        }
 
         let previous = focus.currentFrontmost()
         var burstStart: Date?
         var burstEnd: Date?
         for target in targets {
-            guard activator.activateAndRaise(target) else { continue }
+            guard activator.activateAndRaise(target) else {
+                onLog?("activation failed for \(target.title)")
+                continue
+            }
             let burst = mouse.jiggle(in: target.frame, pressKey: settings.pressKey)
             burstStart = min(burstStart ?? burst.start, burst.start)
             burstEnd = max(burstEnd ?? burst.end, burst.end)
         }
-        guard let start = burstStart, let end = burstEnd else { return false }
+        guard let start = burstStart, let end = burstEnd else {
+            lastCycleActivationFailed = true
+            return .activationFailed
+        }
+        lastCycleActivationFailed = false
         lastBurst = (start, end)
         onLog?("jiggled \(targets.count) window(s)")
 
         if settings.returnFocusAfterJiggle, let previous,
            previous.bundleIdentifier != windowsAppBundleID,
            !targets.contains(where: { $0.pid == previous.pid }) {
-            focus.restore(previous)
+            if !focus.restore(previous) {
+                onLog?("focus restore failed for pid \(previous.pid)")
+            }
         }
-        return true
+        return .jiggled
     }
 }

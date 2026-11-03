@@ -10,7 +10,7 @@ if arguments.contains("--list-windows") {
     print(Diagnostics.jiggleOnce(settings: SettingsStore().load()))
     exit(0)
 } else if arguments.contains("--idle") {
-    print(Diagnostics.sampleIdle(seconds: 15))
+    Diagnostics.sampleIdle(seconds: 15)
     exit(0)
 }
 

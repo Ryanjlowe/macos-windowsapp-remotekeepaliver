@@ -1,6 +1,10 @@
 APP_NAME := RemoteKeepAliver
 BUNDLE_ID := com.ryanlowe.RemoteKeepAliver
 APP := build/$(APP_NAME).app
+# A stable identity keeps the Accessibility grant across rebuilds. Ad-hoc
+# signing ("-") ties the designated requirement to the cdhash, so every
+# rebuild loses the grant. Override with SIGN_IDENTITY="name".
+SIGN_IDENTITY ?= $(shell security find-identity -v -p codesigning | sed -n 's/.*"\(Apple Development:[^"]*\)".*/\1/p;s/.*"\(RemoteKeepAliver Dev\)".*/\1/p' | head -1)
 
 .PHONY: build test bundle run install clean
 
@@ -16,7 +20,7 @@ bundle: build
 	cp -f "$$(swift build -c release --show-bin-path)/$(APP_NAME)" "$(APP)/Contents/MacOS/$(APP_NAME)"
 	cp -f Packaging/Info.plist "$(APP)/Contents/Info.plist"
 	printf 'APPL????' > "$(APP)/Contents/PkgInfo"
-	codesign --force --sign - --identifier $(BUNDLE_ID) "$(APP)"
+	codesign --force --sign "$(if $(SIGN_IDENTITY),$(SIGN_IDENTITY),-)" --identifier $(BUNDLE_ID) "$(APP)"
 
 run: bundle
 	open "$(APP)"

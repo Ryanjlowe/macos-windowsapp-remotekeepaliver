@@ -62,7 +62,7 @@ This is a hand-drawn mock of the menu. A real screenshot will replace it.
 ```sh
 git clone https://github.com/Ryanjlowe/macos-windowsapp-remotekeepaliver.git
 cd macos-windowsapp-remotekeepaliver
-make bundle     # builds build/RemoteKeepAliver.app, ad-hoc signed
+make bundle     # builds build/RemoteKeepAliver.app, signed with your Apple Development identity if one exists (set `SIGN_IDENTITY` to override), otherwise ad-hoc. Ad-hoc builds lose the Accessibility grant on every rebuild
 make install    # copies it to /Applications
 ```
 

@@ -20,7 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             idleSource: CGIdleSource(),
             windows: source,
             activator: WindowActivator(source: source),
-            mouse: CGMousePoster(),
+            mouse: CGMousePoster(distance: settings.jiggleDistance),
             focus: WorkspaceFocusRestorer(),
             hasPermission: { Permissions.isTrusted() }
         )
@@ -52,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func applySleep() {
         let s = engine.settings
-        let on = s.enabled && s.keepSystemAwake
-        sleep.update(systemAwake: on, displayAwake: on && s.keepDisplayAwake)
+        sleep.update(systemAwake: s.enabled && s.keepSystemAwake,
+                     displayAwake: s.enabled && s.keepDisplayAwake)
     }
 }

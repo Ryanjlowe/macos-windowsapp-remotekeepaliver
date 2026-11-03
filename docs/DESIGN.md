@@ -209,7 +209,12 @@ with margin.
   through AX. On first launch the app calls `AXIsProcessTrustedWithOptions`
   with the prompt option. TCC remembers the grant per bundle id and code
   signature, so the app must run as a `.app` bundle signed with a stable
-  identity. Ad-hoc signing (`codesign -s -`) is fine for personal use.
+  identity. Ad-hoc signing (`codesign -s -`)
+  does not work across rebuilds, because its designated requirement is the
+  cdhash and TCC drops the grant on every change. Sign with an Apple
+  Development identity or a self-signed code signing certificate; the
+  Makefile picks one automatically and falls back to ad-hoc with no grant
+  persistence.
 - Screen Recording is not required because window titles come from AX, not
   from `CGWindowListCopyWindowInfo`.
 - `Info.plist` sets `LSUIElement` to true so there is no Dock icon and

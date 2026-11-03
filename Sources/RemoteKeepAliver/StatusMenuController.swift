@@ -35,6 +35,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         case .watching(let idle):
             let s = Int(idle)
             return String(format: "Status: Watching (idle %d:%02d)", s / 60, s % 60)
+        case .away where engine.lastCycleActivationFailed:
+            return "Status: Away, could not activate session window"
         case .away: return "Status: Away, jiggling every \(intervalLabel(engine.settings.jiggleInterval))"
         case .awayNoTarget: return "Status: Away, no session window"
         }
@@ -57,6 +59,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         switch engine.state {
         case .disabled: (symbol, alpha) = ("cursorarrow.motionlines", 0.4)
         case .needsPermission: (symbol, alpha) = ("exclamationmark.triangle", 1)
+        case .away: (symbol, alpha) = ("cursorarrow.motionlines.click", 1)
         default: (symbol, alpha) = ("cursorarrow.motionlines", 1)
         }
         if let button = item.button {
@@ -70,7 +73,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         targetLine?.title = targetText()
     }
 
-    func menuWillOpen(_ menu: NSMenu) {
+    func menuNeedsUpdate(_ menu: NSMenu) {
         rebuild()
         refresh()
     }

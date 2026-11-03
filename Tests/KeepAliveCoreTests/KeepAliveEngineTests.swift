@@ -19,9 +19,10 @@ final class FakeWindows: WindowSource {
 final class FakeActivator: WindowActivating {
     var activated: [WindowInfo] = []
     var succeeds = true
+    var failingIds: Set<Int> = []
     func activateAndRaise(_ window: WindowInfo) -> Bool {
         activated.append(window)
-        return succeeds
+        return succeeds && !failingIds.contains(window.id)
     }
 }
 
@@ -42,7 +43,7 @@ final class FakeFocus: FocusRestoring {
     var frontmost: FrontmostApp? = FrontmostApp(pid: 100, bundleIdentifier: "com.apple.Terminal")
     var restored: [FrontmostApp] = []
     func currentFrontmost() -> FrontmostApp? { frontmost }
-    func restore(_ app: FrontmostApp) { restored.append(app) }
+    func restore(_ app: FrontmostApp) -> Bool { restored.append(app); return true }
 }
 
 final class KeepAliveEngineTests: XCTestCase {
@@ -133,10 +134,68 @@ final class KeepAliveEngineTests: XCTestCase {
         idle.value = 1 // Real input one second ago.
         engine.tick()
         XCTAssertEqual(engine.state, .watching(idle: 1))
-        clock.advance(100)
-        idle.value = 101
-        engine.tick()
+    }
+
+    func testReenteringAwayJigglesImmediately() {
+        var s = KeepAliveSettings(); s.idleThreshold = 60; s.jiggleInterval = 240
+        makeEngine(s)
+        idleFor(60); engine.tick()
         XCTAssertEqual(mouse.jiggles.count, 1)
+        clock.advance(10); idle.value = 1; engine.tick()
+        XCTAssertEqual(engine.state, .watching(idle: 1))
+        idleFor(60); engine.tick()
+        XCTAssertEqual(engine.state, .away)
+        XCTAssertEqual(mouse.jiggles.count, 2)
+    }
+
+    func testReenteringAwayFromNeedsPermissionJigglesImmediately() {
+        var s = KeepAliveSettings(); s.idleThreshold = 60; s.jiggleInterval = 240
+        makeEngine(s)
+        idleFor(60); engine.tick()
+        XCTAssertEqual(mouse.jiggles.count, 1)
+        permission = false
+        clock.advance(5); syntheticOnlyIdle(); engine.tick()
+        XCTAssertEqual(engine.state, .needsPermission)
+        permission = true
+        clock.advance(5); syntheticOnlyIdle(); engine.tick()
+        XCTAssertEqual(engine.state, .away)
+        XCTAssertEqual(mouse.jiggles.count, 2)
+    }
+
+    func testActivationFailureJigglesNothingAndKeepsTargets() {
+        var logs: [String] = []
+        engine.onLog = { logs.append($0) }
+        activator.succeeds = false
+        goAway()
+        XCTAssertTrue(mouse.jiggles.isEmpty)
+        XCTAssertEqual(engine.state, .away)
+        XCTAssertTrue(engine.lastCycleActivationFailed)
+        XCTAssertEqual(engine.lastTargets, [session])
+        XCTAssertTrue(focus.restored.isEmpty)
+        XCTAssertFalse(engine.jiggleNow())
+        XCTAssertTrue(logs.contains("activation failed for Australia Desktop"))
+    }
+
+    func testPartialActivationFailureJigglesOnlyTheSuccessfulWindow() {
+        let berlin = WindowInfo(id: 2, pid: 500, title: "Berlin Desktop",
+                                frame: CGRect(x: 0, y: 0, width: 600, height: 400), isOnScreen: true)
+        windows.windows = [session, berlin]
+        activator.failingIds = [session.id]
+        goAway()
+        XCTAssertEqual(mouse.jiggles.map(\.frame), [berlin.frame])
+        XCTAssertEqual(engine.state, .away)
+        XCTAssertFalse(engine.lastCycleActivationFailed)
+    }
+
+    func testTwoSessionsAreAllJiggledLargestFirstAndFocusRestoredOnce() {
+        let berlin = WindowInfo(id: 2, pid: 500, title: "Berlin Desktop",
+                                frame: CGRect(x: 0, y: 0, width: 600, height: 400), isOnScreen: true)
+        windows.windows = [berlin, session]
+        goAway()
+        XCTAssertEqual(activator.activated, [session, berlin])
+        XCTAssertEqual(mouse.jiggles.map(\.frame), [session.frame, berlin.frame])
+        XCTAssertEqual(engine.lastTargets, [session, berlin])
+        XCTAssertEqual(focus.restored.count, 1)
     }
 
     func testAwayNoTargetThenRecovers() {
@@ -214,6 +273,12 @@ final class KeepAliveEngineTests: XCTestCase {
         var states: [KeepAliveState] = []
         engine.onStateChange = { states.append($0) }
         goAway()
-        XCTAssertEqual(states.last, .away)
+        XCTAssertEqual(states, [.away])
+        for _ in 0..<5 {
+            clock.advance(5); syntheticOnlyIdle(); engine.tick()
+        }
+        XCTAssertEqual(states, [.away])
+        idle.value = 1; engine.tick()
+        XCTAssertEqual(states, [.away, .watching(idle: 1)])
     }
 }
