@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.ryanlowe.RemoteKeepAliver</string>
+	<key>CFBundleName</key>
+	<string>RemoteKeepAliver</string>
+	<key>CFBundleDisplayName</key>
+	<string>RemoteKeepAliver</string>
+	<key>CFBundleExecutable</key>
+	<string>RemoteKeepAliver</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSAccessibilityUsageDescription</key>
+	<string>RemoteKeepAliver needs Accessibility access to find your Windows App session window, bring it to the front, and move the mouse inside it while you are away so the remote session stays active.</string>
+</dict>
+</plist>
