@@ -1,5 +1,7 @@
 # RemoteKeepAliver
 
+<img src="docs/images/app-icon.png" alt="RemoteKeepAliver app icon: a remote desktop window with a cursor and motion arcs on a blue tile" width="128" align="right">
+
 RemoteKeepAliver is a small macOS menu bar app that keeps a Windows App (Microsoft Remote Desktop) session alive. After you go idle, it raises the remote session window, moves the mouse a few pixels inside it, and hands focus back to whatever you were using. A system-wide mouse jiggler is not enough because Windows App only forwards input to the remote PC when the pointer and focus are in the session window. Jiggling over Mail never reaches the remote machine, so its idle timer keeps running.
 
 ## The problem and the fix
