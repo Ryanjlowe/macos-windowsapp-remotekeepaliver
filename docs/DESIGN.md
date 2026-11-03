@@ -23,9 +23,11 @@ Goals:
 
 Non-goals:
 
-- Restoring the previously frontmost app when the user returns. That races
-  with the user starting to type, so the app leaves focus where it is.
-- Keyboard injection. Mouse movement is sufficient and less intrusive.
+- Restoring focus at the moment the user returns. That races with the user
+  starting to type. Focus is instead returned right after each pulse, while
+  the user is still away (see the away-mode cycle).
+- Diagnosing server-side causes. The README explains how to read the
+  disconnect dialog and remote event log, but the app only injects input.
 - Supporting other RDP clients. The bundle id is a constant, not a setting.
 
 ## Behavior
@@ -70,16 +72,30 @@ Every `jiggleInterval` seconds while `away`:
 1. Find the Windows App process by bundle id `com.microsoft.rdc.macos`.
 2. Enumerate its windows through the Accessibility API and pick session
    windows with `SessionWindowSelector` (see the next section).
-3. For each session window: activate the app, raise that window and make it
-   main, then post `mouseMoved` events to `.cghidEventTap`:
-   - If the cursor is already inside the window frame, jiggle around the
-     current position.
-   - Otherwise move the cursor to the window center first.
-   - Jiggle pattern: +d, then -d, where d is 5 px, with ~40 ms between events.
-     The cursor ends inside the window so the next cycle is cheap.
-4. Record the burst start and end timestamps for the idle bookkeeping.
+3. Remember the currently frontmost app (`NSWorkspace.frontmostApplication`).
+4. For each session window:
+   1. Activate Windows App (`NSRunningApplication.activate()`), then set
+      `kAXFrontmostAttribute` on the app element and perform `kAXRaiseAction`
+      on the window. Activation is cooperative on macOS 14+ and may be
+      declined, so check return codes, wait about 300 ms, confirm with
+      `NSWorkspace.frontmostApplication`, and retry once.
+   2. Post `mouseMoved` events to `.cghidEventTap`. A `CGWarpMouseCursorPosition`
+      alone generates no event, so every move is a posted `CGEvent`:
+      - If the cursor is already inside the window frame, jiggle around the
+        current position.
+      - Otherwise post a move to the window center first.
+      - Jiggle pattern: +d, then -d, where d is 5 px, with ~40 ms between
+        events. The cursor ends inside the window.
+   3. If the "Also press a key" setting is on, post an F15 key down and up
+      (a key Windows ignores) after the moves.
+5. If the "Return focus after jiggle" setting is on (default), re-activate the
+   remembered app about 300 ms after the last event so Windows App has
+   processed the input. When the user returns, their previous app is in front.
+6. Record the burst start and end timestamps for the idle bookkeeping.
 
-The first cycle runs as soon as the engine enters `away`.
+The first cycle runs as soon as the engine enters `away`. `Jiggle now` in the
+menu runs one cycle in any state and is the diagnostic for whether input
+reaches the remote.
 
 ### Session window selection
 
@@ -152,7 +168,8 @@ public protocol Clock { var now: Date { get } }
 public protocol IdleSource { func secondsSinceLastInput() -> TimeInterval }
 public protocol WindowSource { func sessionCandidates() -> [WindowInfo] }   // all Windows App windows
 public protocol WindowActivating { func activateAndRaise(_ window: WindowInfo) }
-public protocol MousePosting { func jiggle(in frame: CGRect) -> (start: Date, end: Date) }
+public protocol MousePosting { func jiggle(in frame: CGRect, pressKey: Bool) -> (start: Date, end: Date) }
+public protocol FocusRestoring { func currentFrontmost() -> FrontmostApp?; func restore(_ app: FrontmostApp) }
 ```
 
 `KeepAliveEngine` takes all five plus a `Settings` value, exposes
@@ -172,6 +189,8 @@ Start after idle    ▸ 1 min / 2 min ✓ / 5 min / 10 min
 Jiggle every        ▸ 30 s / 1 min ✓ / 2 min / 4 min
 ✓ Keep Mac awake
 ✓ Keep display awake
+✓ Return focus after jiggle
+  Also press a key (F15)
   Launch at login
 ──────────────────────────
 Jiggle now                           manual test, works in any state
@@ -195,8 +214,24 @@ with margin.
   from `CGWindowListCopyWindowInfo`.
 - `Info.plist` sets `LSUIElement` to true so there is no Dock icon and
   `NSAccessibilityUsageDescription` to explain the prompt.
+- macOS evaluates the post-event permission at launch, so the app must be
+  relaunched after the grant. The menu says so while trust is missing.
 - `make bundle` assembles `build/RemoteKeepAliver.app`; `make install` copies
   it to `/Applications`; `make run` launches it with `open`.
+
+## Diagnostic command-line flags
+
+The executable accepts flags so behavior can be checked from a terminal
+without the menu:
+
+| Flag | Effect |
+|---|---|
+| `--list-windows` | Print every Windows App window seen through AX with title, frame, on-screen flag, and whether `SessionWindowSelector` picked it. Exit. |
+| `--jiggle-once` | Run one away-mode cycle (activate, raise, jiggle, return focus) and exit. |
+| `--idle` | Print measured idle every second for 15 s. Exit. |
+
+The `.app` bundle's binary can be invoked directly:
+`build/RemoteKeepAliver.app/Contents/MacOS/RemoteKeepAliver --list-windows`.
 
 ## Logging
 
@@ -210,7 +245,11 @@ log stream --predicate 'subsystem == "com.ryanlowe.RemoteKeepAliver"' --level in
 ## Open questions to verify after the first build
 
 - Does Windows App forward a 5 px synthetic move to the remote when its window
-  was just raised? If not, add a short delay after activation before posting.
+  was just raised? The 300 ms settle delay is a guess; tune it.
+- Does mouse-only motion keep Teams Available on the remote, or is the F15
+  option needed?
+- Does returning focus 300 ms after the pulse ever cause Windows App to drop
+  the queued events?
 - Does a full-screen session window (separate Space) need extra handling? AX
   raise should switch Spaces, but verify.
 - Whether `IOHIDSystem` `HIDIdleTime` ignores synthetic posts. If it does, it
